@@ -7,9 +7,6 @@
 //
 
 #import "AccelerometerViewController.h"
-#import "OnOffTableCell.h"
-#import "SliderTableCell.h"
-#import "SegmentedTableCell.h"
 #import "AccelerationInfo.h"
 
 @implementation AccelerometerViewController
@@ -264,7 +261,7 @@
 	[[NSNotificationCenter defaultCenter] postNotificationName:@"AccelerationUpdate" object:accelInfo];
 	
 	// update UI with a notification message if more than 0.2 sec has passed
-	if( accelerometerMode == kAccelerometerSensor && abs(acceleration.timestamp - updateTime) > 0.2 )
+	if( accelerometerMode == kAccelerometerSensor && fabs(acceleration.timestamp - updateTime) > 0.2 )
 	{
 		updateTime = acceleration.timestamp;
 		[[NSNotificationCenter defaultCenter] postNotificationName:@"AccelerationSensor" object:acceleration];
