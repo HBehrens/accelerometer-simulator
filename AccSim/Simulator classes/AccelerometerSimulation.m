@@ -24,9 +24,9 @@
 @synthesize z;
 
 -(UIAccelerationSimulation*)initWithTimestamp:(NSTimeInterval)aTimeStamp
-		X:(UIAccelerationValue)ax
-		Y:(UIAccelerationValue)ay
-		Z:(UIAccelerationValue)az 
+											X:(UIAccelerationValue)ax
+											Y:(UIAccelerationValue)ay
+											Z:(UIAccelerationValue)az 
 {
 	timestamp = aTimeStamp;
 	x = ax;
@@ -46,19 +46,19 @@
 }
 @end
 /*
-// callback that never got called with CFSocket UDP...
+ // callback that never got called with CFSocket UDP...
  
-void mySocketCallBack( CFSocketRef s,
-					  CFSocketCallBackType callbackType,
-					  CFDataRef address,
-					  const void *data,
-					  void *info)
-{
-	AccelerometerSimulation *accSim = (AccelerometerSimulation*)info;
-	
-	NSLog(@"Data %s received", (char*)data);
-}
-*/
+ void mySocketCallBack( CFSocketRef s,
+ CFSocketCallBackType callbackType,
+ CFDataRef address,
+ const void *data,
+ void *info)
+ {
+ AccelerometerSimulation *accSim = (AccelerometerSimulation*)info;
+ 
+ NSLog(@"Data %s received", (char*)data);
+ }
+ */
 
 // singleton
 static AccelerometerSimulation *sharedAccelerometer = NULL;
@@ -84,13 +84,15 @@ static AccelerometerSimulation *sharedAccelerometer = NULL;
 - (void) processNotification:(NSNotification *) notification {
     if( [NSThread currentThread] != notificationThread ) {
         // Forward the notification to the correct thread, this is the socket thread
+		NSDate* date = [[NSDate alloc] init];
         [notificationLock lock];
         [notifications addObject:notification];
         [notificationLock unlock];
-        [notificationPort sendBeforeDate:[NSDate date]
+        [notificationPort sendBeforeDate:date
 							  components:nil
 									from:nil
 								reserved:0];
+		[date release];
     }
     else {
 		// now we are in the main thread
@@ -141,10 +143,11 @@ static AccelerometerSimulation *sharedAccelerometer = NULL;
 		{
 			// got data, let's pass it on
 			buffer[count] = 0;
-			NSString *str = [NSString stringWithUTF8String:buffer];
+			NSString *str = [[NSString alloc] initWithUTF8String:buffer];
 			[[NSNotificationCenter defaultCenter]  postNotificationName:@"ThreadAccelNotification" object:str];
+			[str release];
 		}
-			
+		
 	}
 }
 
@@ -153,7 +156,7 @@ static AccelerometerSimulation *sharedAccelerometer = NULL;
 {
 	accObject = [UIAccelerationSimulation alloc];
 	isExiting = false;
-
+	
 	// couldn't get the CFSocket version to work with UDP and runloop, so used Berkely sockets and a thread instead
 	
 	udpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -169,54 +172,54 @@ static AccelerometerSimulation *sharedAccelerometer = NULL;
 	
 	// create a separate thread for receiving UDP packets
 	thread = [[NSThread alloc] initWithTarget:self
-										 selector:@selector(threadLoop:)
-										 object:nil];
+									 selector:@selector(threadLoop:)
+									   object:nil];
 	[thread start];	
-
+	
 	// cross-thread communication setup
 	[self setUpThreadingSupport];
 	[[NSNotificationCenter defaultCenter]
-		addObserver:self
-		selector:@selector(processNotification:)
-		name:@"ThreadAccelNotification"
-		object:nil];
-/*
-	// create and initialize a socket
-	CFSocketContext ctx;
-	
-	ctx.info = self;
-	ctx.version = 0;
-	ctx.retain = NULL;
-	ctx.release = NULL;
-	ctx.copyDescription = NULL;
-	udpSocket = CFSocketCreate(NULL, PF_INET, SOCK_DGRAM, IPPROTO_UDP, kCFSocketDataCallBack | 0xF, mySocketCallBack, NULL);
-	
-	CFRunLoopSourceRef source;
-	CFDataRef addr;
-	CFSocketError theErr;
-	struct sockaddr_in sin;
-	memset(&sin, 0, sizeof(sin));
-	sin.sin_addr.s_addr = INADDR_ANY;
-	sin.sin_len = sizeof(struct sockaddr_in);
-	sin.sin_family = AF_INET;
-	sin.sin_port = htons(10552);
-	addr = CFDataCreate(NULL, (unsigned char *)&sin, sizeof(sin));
-	theErr = CFSocketConnectToAddress(udpSocket, addr, 0);
-	switch (theErr) {
-		case kCFSocketSuccess:
-			NSLog(@"UDP Logged in");
-			source = CFSocketCreateRunLoopSource(NULL, udpSocket, 0);
-			CFRunLoopAddSource(CFRunLoopGetMain(), source, 
-							   kCFRunLoopDefaultMode);
-			break;
-		case kCFSocketError:
-			NSLog(@"UDP Error");
-			break;
-		default:
-			NSLog(@"UDP Networking Error");
-			break;
-	}
-*/
+	 addObserver:self
+	 selector:@selector(processNotification:)
+	 name:@"ThreadAccelNotification"
+	 object:nil];
+	/*
+	 // create and initialize a socket
+	 CFSocketContext ctx;
+	 
+	 ctx.info = self;
+	 ctx.version = 0;
+	 ctx.retain = NULL;
+	 ctx.release = NULL;
+	 ctx.copyDescription = NULL;
+	 udpSocket = CFSocketCreate(NULL, PF_INET, SOCK_DGRAM, IPPROTO_UDP, kCFSocketDataCallBack | 0xF, mySocketCallBack, NULL);
+	 
+	 CFRunLoopSourceRef source;
+	 CFDataRef addr;
+	 CFSocketError theErr;
+	 struct sockaddr_in sin;
+	 memset(&sin, 0, sizeof(sin));
+	 sin.sin_addr.s_addr = INADDR_ANY;
+	 sin.sin_len = sizeof(struct sockaddr_in);
+	 sin.sin_family = AF_INET;
+	 sin.sin_port = htons(10552);
+	 addr = CFDataCreate(NULL, (unsigned char *)&sin, sizeof(sin));
+	 theErr = CFSocketConnectToAddress(udpSocket, addr, 0);
+	 switch (theErr) {
+	 case kCFSocketSuccess:
+	 NSLog(@"UDP Logged in");
+	 source = CFSocketCreateRunLoopSource(NULL, udpSocket, 0);
+	 CFRunLoopAddSource(CFRunLoopGetMain(), source, 
+	 kCFRunLoopDefaultMode);
+	 break;
+	 case kCFSocketError:
+	 NSLog(@"UDP Error");
+	 break;
+	 default:
+	 NSLog(@"UDP Networking Error");
+	 break;
+	 }
+	 */
 	return self;
 }
 
