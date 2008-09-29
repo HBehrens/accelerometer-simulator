@@ -13,7 +13,14 @@
 #include <arpa/inet.h>
 #include <errno.h>
 
+// default UDP port
 #define kAccelerometerSimulationPort 10552
+
+// the amount of vertical shift upwards keep the text field in view as the keyboard appears
+#define kOFFSET_FOR_KEYBOARD					100.0
+
+// the duration of the animation for the view shift
+#define kVerticalOffsetAnimationDuration		0.30
 
 @implementation NetworkView
 
@@ -222,26 +229,101 @@
 	return nil;
 }
 
+// Animate the entire view up or down, to prevent the keyboard from covering the author field.
+- (void)setViewMovedUp:(BOOL)movedUp
+{
+    [UIView beginAnimations:nil context:NULL];
+    [UIView setAnimationDuration:0.3];
+    // Make changes to the view's frame inside the animation block. They will be animated instead
+    // of taking place immediately.
+    CGRect rect = self.view.frame;
+    if (movedUp)
+	{
+        // If moving up, not only decrease the origin but increase the height so the view 
+        // covers the entire screen behind the keyboard.
+        rect.origin.y -= kOFFSET_FOR_KEYBOARD;
+        rect.size.height += kOFFSET_FOR_KEYBOARD;
+    }
+	else
+	{
+        // If moving down, not only increase the origin but decrease the height.
+        rect.origin.y += kOFFSET_FOR_KEYBOARD;
+        rect.size.height -= kOFFSET_FOR_KEYBOARD;
+    }
+    self.view.frame = rect;
+    
+    [UIView commitAnimations];
+}
+
 // called when textfield editing ends (eg. user pressed return)
 - (void)textFieldDidEndEditing:(UITextField *)textField {
-	if( textField == ipAddressView )
+	if( [textField isEqual:ipAddressView])
 	{
 		// store IP, convert from text to IP
 		ipAddress = [ipAddressView.text copy];
 		const char *addr = [[ipAddressView text] UTF8String];
 		inet_aton(addr, &targetAddress.sin_addr);
 	}
-	if( textField == ipPortView )
+	if( [textField isEqual:ipPortView] )
 	{
 		// store port, remember host to net conversion
 		targetAddress.sin_port = htons([[ipPortView text] intValue]);
+	}
+	if  (self.view.frame.origin.y < 0)
+	{
+		[self setViewMovedUp:NO];
 	}
 }
 
 - (BOOL)textFieldShouldReturn:(UITextField *)textField {
 	// return pressed, close keyboard
 	[textField resignFirstResponder];
-	return YES;
+ 	return YES;
+}
+
+
+
+- (void)textFieldDidBeginEditing:(UITextField *)theTextField
+{
+	if ([theTextField isEqual:ipAddressView] || [theTextField isEqual:ipPortView])
+	{
+        // Restore the position of the main view if it was animated to make room for the keyboard.
+        if  (self.view.frame.origin.y >= 0)
+		{
+            [self setViewMovedUp:YES];
+        }
+    }
+}
+
+- (void)keyboardWillShow:(NSNotification *)notif
+{
+    // The keyboard will be shown. If the user is editing the author, adjust the display so that the
+    // author field will not be covered by the keyboard.
+    if (([ipAddressView isFirstResponder] || [ipPortView isFirstResponder]) && self.view.frame.origin.y >= 0)
+	{
+        [self setViewMovedUp:YES];
+    }
+	else if (!([ipAddressView isFirstResponder] || [ipPortView isFirstResponder]) && self.view.frame.origin.y < 0)
+	{
+        [self setViewMovedUp:NO];
+    }
+}
+
+#pragma mark - UIViewController delegate methods
+
+- (void)viewWillAppear:(BOOL)animated
+{
+    // watch the keyboard so we can adjust the user interface if necessary.
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillShow:) 
+												 name:UIKeyboardWillShowNotification object:self.view.window]; 
+}
+
+- (void)viewWillDisappear:(BOOL)animated
+{
+    [self setEditing:NO animated:YES];
+	
+    // unregister for keyboard notifications while not visible.
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillShowNotification object:nil]; 
 }
 
 // switch between broadcast and unicast
